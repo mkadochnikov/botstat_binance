@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Пути и параметры ( настройте под свой проект )
-FASTAPI_DIR="/app"
-STREAMLIT_DIR="/app"
+# Пути и параметры (настройте под свой проект)
+FASTAPI_DIR="/home/user/botstat_binance/app/"
+STREAMLIT_DIR="/home/user/botstat_binance/app/"
 FASTAPI_PORT=8008
 STREAMLIT_PORT=8005
 
