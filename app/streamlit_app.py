@@ -1,4 +1,13 @@
 import streamlit as st
+
+# Настройка страницы Streamlit (должна быть первой командой Streamlit)
+st.set_page_config(
+    page_title="Ultimate Crypto Analytics",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 import pandas as pd
 import requests
 import time
@@ -19,14 +28,6 @@ try:
     from pages.home_page import render_home_page
 except ImportError:
     st.error("Не удалось импортировать модуль главной страницы")
-
-# Настройка страницы Streamlit
-st.set_page_config(
-    page_title="Ultimate Crypto Analytics",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Константы
 API_BASE_URL = "http://localhost:8008"  # URL FastAPI сервера на порту 8008

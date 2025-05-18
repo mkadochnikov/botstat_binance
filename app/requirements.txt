@@ -9,3 +9,4 @@ asyncio==3.4.3
 aiohttp==3.7.4
 python-dotenv==1.0.0
 websockets==10.4
+plotly>=5.14.0

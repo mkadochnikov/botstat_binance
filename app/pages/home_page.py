@@ -523,8 +523,11 @@ def render_home_page():
             )
         
         # Отображаем время последнего обновления
-        last_update = datetime.datetime.fromtimestamp(orderbook['timestamp'] / 1000)
-        st.caption(f"Последнее обновление: {last_update.strftime('%Y-%m-%d %H:%M:%S')}")
+        if orderbook['timestamp'] is not None:
+            last_update = datetime.datetime.fromtimestamp(orderbook['timestamp'] / 1000)
+            st.caption(f"Последнее обновление: {last_update.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            st.caption("Время последнего обновления недоступно")
         
         # ❻ Фьючерсы (финансирование, OI)
         st.subheader("🔄 Ставки финансирования (Funding Rates)")
