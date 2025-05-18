@@ -24,7 +24,7 @@ restart_streamlit() {
 
     echo "Запускаю Streamlit..."
     cd "$STREAMLIT_DIR" || exit
-    nohup streamlit run app.py --server.port $STREAMLIT_PORT > streamlit.log 2>&1 &
+    nohup streamlit run streamlit_app.py --server.port $STREAMLIT_PORT > streamlit.log 2>&1 &
     echo "Streamlit запущен на порту $STREAMLIT_PORT"
 }
 
