@@ -20,7 +20,7 @@ restart_fastapi() {
 # Функция для перезапуска Streamlit
 restart_streamlit() {
     echo "Останавливаю Streamlit..."
-    pkill -f "streamlit run app.py --server.port $STREAMLIT_PORT"
+    pkill -f "streamlit run streamlit_app.py --server.port $STREAMLIT_PORT"
 
     echo "Запускаю Streamlit..."
     cd "$STREAMLIT_DIR" || exit
