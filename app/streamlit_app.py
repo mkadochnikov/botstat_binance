@@ -1,13 +1,4 @@
 import streamlit as st
-
-# Настройка страницы Streamlit (должна быть первой командой Streamlit)
-st.set_page_config(
-    page_title="Ultimate Crypto Analytics",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
 import pandas as pd
 import requests
 import time
@@ -28,6 +19,14 @@ try:
     from pages.home_page import render_home_page
 except ImportError:
     st.error("Не удалось импортировать модуль главной страницы")
+
+# Настройка страницы Streamlit
+st.set_page_config(
+    page_title="Ultimate Crypto Analytics",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # Константы
 API_BASE_URL = "http://localhost:8008"  # URL FastAPI сервера на порту 8008
@@ -405,12 +404,7 @@ def main():
     
     # Обработка выбора таба
     with tabs[0]:  # Главная
-        if st.session_state.page == 'home':
-            try:
-                render_home_page()
-            except Exception as e:
-                st.error(f"Ошибка при отображении главной страницы: {str(e)}")
-                st.exception(e)
+        render_home_page()
     
     with tabs[1]:  # Портфель
         if st.session_state.page == 'portfolio':
@@ -444,7 +438,6 @@ def main():
                 st.session_state.page = 'news'
             elif i == 4:
                 st.session_state.page = 'atr'
-            st.experimental_rerun()
 
 # Запуск приложения
 if __name__ == "__main__":
