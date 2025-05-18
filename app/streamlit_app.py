@@ -7,6 +7,7 @@ import csv
 import io
 import os
 import sys
+import json
 from typing import List, Dict, Any, Optional
 
 # Добавляем родительскую директорию в путь для импорта
@@ -38,15 +39,65 @@ def get_symbols() -> List[str]:
         return []
 
 def get_all_symbols_atr(limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Получение ATR для всех символов"""
+    """Получение ATR для всех символов с отображением прогресса"""
     try:
+        # Сначала получаем список всех символов для определения общего количества
+        all_symbols = get_symbols()
+        total_symbols = len(all_symbols)
+        
+        if total_symbols == 0:
+            st.error("Не удалось получить список символов")
+            return []
+        
+        # Создаем прогресс-бар
+        progress_text = "Загрузка данных символов..."
+        progress_bar = st.progress(0, text=progress_text)
+        
+        # Создаем всплывающее окно с информацией о прогрессе
+        status_container = st.empty()
+        
+        # URL для запроса
         url = f"{API_BASE_URL}/all_symbols_atr"
         if limit is not None:
             url += f"?limit={limit}"
+            total_symbols = min(total_symbols, limit)
         
-        response = requests.get(url)
+        # Выполняем запрос с отслеживанием прогресса
+        response = requests.get(url, stream=True)
         response.raise_for_status()
-        return response.json()
+        
+        # Инициализируем переменные для отслеживания прогресса
+        data = []
+        loaded_symbols = 0
+        
+        # Обрабатываем ответ построчно для отслеживания прогресса
+        for line in response.iter_lines():
+            if line:
+                # Декодируем строку и добавляем в данные
+                item = json.loads(line.decode('utf-8'))
+                data.append(item)
+                
+                # Обновляем прогресс
+                loaded_symbols += 1
+                progress = min(loaded_symbols / total_symbols, 1.0)
+                
+                # Обновляем прогресс-бар и всплывающее окно
+                progress_bar.progress(progress, text=f"{progress_text} ({loaded_symbols}/{total_symbols})")
+                status_container.info(f"Загружено символов: {loaded_symbols} из {total_symbols} ({int(progress * 100)}%)")
+                
+                # Небольшая задержка для визуализации прогресса
+                time.sleep(0.01)
+        
+        # Завершаем прогресс и очищаем всплывающее окно
+        progress_bar.progress(1.0, text="Загрузка завершена!")
+        time.sleep(1)  # Показываем завершенный прогресс-бар на 1 секунду
+        progress_bar.empty()
+        status_container.empty()
+        
+        # Показываем уведомление о завершении
+        st.toast(f"Загрузка завершена! Загружено {loaded_symbols} символов.", icon="✅")
+        
+        return data
     except Exception as e:
         st.error(f"Ошибка при получении данных ATR: {str(e)}")
         return []
@@ -177,18 +228,17 @@ def main():
         if show_all_symbols:
             st.warning("Загрузка всех символов может занять некоторое время. Пожалуйста, подождите...")
         
-        # Получаем данные ATR
-        with st.spinner("Загрузка данных через WebSocket..."):
-            atr_data = get_all_symbols_atr(symbols_limit)
+        # Получаем данные ATR с отображением прогресса
+        atr_data = get_all_symbols_atr(symbols_limit)
             
-            if atr_data:
-                # Создаем DataFrame
-                df = create_atr_dataframe(atr_data)
-                
-                # Сохраняем данные в состоянии сессии
-                st.session_state.df = df
-                st.session_state.last_update = current_time
-                st.session_state.force_refresh = False
+        if atr_data:
+            # Создаем DataFrame
+            df = create_atr_dataframe(atr_data)
+            
+            # Сохраняем данные в состоянии сессии
+            st.session_state.df = df
+            st.session_state.last_update = current_time
+            st.session_state.force_refresh = False
     
     # Отображаем время последнего обновления
     last_update_time = datetime.datetime.fromtimestamp(st.session_state.last_update).strftime("%Y-%m-%d %H:%M:%S")
