@@ -1,13 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 import plotly.express as px
-from plotly.subplots import make_subplots
 import requests
 import time
 import datetime
-import ccxt
 import os
 import sys
 import json
@@ -15,7 +12,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 # Настройка кэширования данных
 @st.cache_data(ttl=60)
-def get_top_coins(limit=10):
+def get_top_coins(limit=20):
     """
     Получение данных о топ-криптовалютах с CoinGecko
     """
@@ -36,16 +33,25 @@ def get_top_coins(limit=10):
         st.error(f"Ошибка при получении данных о топ-криптовалютах: {str(e)}")
         # Возвращаем фиктивные данные в случае ошибки
         return pd.DataFrame({
-            'symbol': ['BTC', 'ETH', 'USDT', 'BNB', 'SOL', 'XRP', 'USDC', 'ADA', 'AVAX', 'DOGE'],
-            'current_price': [50000, 3000, 1, 400, 100, 0.5, 1, 0.4, 30, 0.1],
-            'price_change_percentage_24h': [2.5, 1.8, 0.1, -1.2, 5.6, -2.3, 0.0, 3.2, -4.1, 1.5],
+            'symbol': ['BTC', 'ETH', 'USDT', 'BNB', 'SOL', 'XRP', 'USDC', 'ADA', 'AVAX', 'DOGE',
+                      'DOT', 'MATIC', 'SHIB', 'TRX', 'TON', 'LINK', 'UNI', 'ATOM', 'LTC', 'BCH'],
+            'current_price': [50000, 3000, 1, 400, 100, 0.5, 1, 0.4, 30, 0.1, 
+                             15, 0.8, 0.00001, 0.1, 2, 15, 8, 10, 80, 300],
+            'price_change_percentage_24h': [2.5, 1.8, 0.1, -1.2, 5.6, -2.3, 0.0, 3.2, -4.1, 1.5,
+                                           -0.8, 2.1, 4.5, -1.7, 3.3, 0.9, -2.8, 1.1, -0.5, 2.2],
             'total_volume': [30000000000, 15000000000, 80000000000, 2000000000, 1500000000, 
-                            1000000000, 900000000, 800000000, 700000000, 600000000],
+                            1000000000, 900000000, 800000000, 700000000, 600000000,
+                            500000000, 450000000, 400000000, 350000000, 300000000,
+                            250000000, 200000000, 150000000, 100000000, 50000000],
             'market_cap': [900000000000, 350000000000, 80000000000, 60000000000, 40000000000,
-                          30000000000, 25000000000, 15000000000, 10000000000, 8000000000],
+                          30000000000, 25000000000, 15000000000, 10000000000, 8000000000,
+                          7000000000, 6000000000, 5000000000, 4000000000, 3000000000,
+                          2500000000, 2000000000, 1500000000, 1000000000, 500000000],
             'name': ['Bitcoin', 'Ethereum', 'Tether', 'Binance Coin', 'Solana', 'Ripple', 
-                    'USD Coin', 'Cardano', 'Avalanche', 'Dogecoin'],
-            'image': [''] * 10
+                    'USD Coin', 'Cardano', 'Avalanche', 'Dogecoin', 'Polkadot', 'Polygon',
+                    'Shiba Inu', 'Tron', 'Toncoin', 'Chainlink', 'Uniswap', 'Cosmos', 
+                    'Litecoin', 'Bitcoin Cash'],
+            'image': [''] * 20
         })
 
 @st.cache_data(ttl=60)
@@ -64,8 +70,8 @@ def get_market_global_data():
         return {
             'total_market_cap': {'usd': 2000000000000},
             'total_volume': {'usd': 100000000000},
-            'market_cap_percentage': {'btc': 45.5, 'eth': 18.2},
-            'market_cap_change_percentage_24h_usd': 2.5
+            'market_cap_percentage': {'btc': 60.79, 'eth': 18.2},
+            'market_cap_change_percentage_24h_usd': -1.45
         }
 
 @st.cache_data(ttl=60)
@@ -87,178 +93,50 @@ def get_fear_greed_index():
         st.error(f"Ошибка при получении индекса страха и жадности: {str(e)}")
         # Возвращаем фиктивные данные в случае ошибки
         return {
-            'value': 50,
-            'value_classification': 'Neutral',
+            'value': 74,
+            'value_classification': 'Greed',
             'timestamp': int(time.time())
         }
 
 @st.cache_data(ttl=60)
-def get_orderbook(symbol='BTC', vs_currency='USDT', limit=10):
+def get_historical_market_cap():
     """
-    Получение данных ордербука с Binance
-    """
-    try:
-        exchange = ccxt.binance()
-        orderbook = exchange.fetch_order_book(f'{symbol.upper()}/{vs_currency.upper()}', limit=limit)
-        
-        # Преобразуем данные в DataFrame
-        bids_df = pd.DataFrame(orderbook['bids'], columns=['price', 'amount'])
-        asks_df = pd.DataFrame(orderbook['asks'], columns=['price', 'amount'])
-        
-        return {
-            'bids': bids_df,
-            'asks': asks_df,
-            'timestamp': orderbook['timestamp']
-        }
-    except Exception as e:
-        st.error(f"Ошибка при получении данных ордербука: {str(e)}")
-        # Возвращаем фиктивные данные в случае ошибки
-        base_price = 50000 if symbol.upper() == 'BTC' else 3000 if symbol.upper() == 'ETH' else 100
-        
-        bids = [[base_price * (1 - i * 0.001), np.random.uniform(0.1, 5.0)] for i in range(limit)]
-        asks = [[base_price * (1 + i * 0.001), np.random.uniform(0.1, 5.0)] for i in range(limit)]
-        
-        return {
-            'bids': pd.DataFrame(bids, columns=['price', 'amount']),
-            'asks': pd.DataFrame(asks, columns=['price', 'amount']),
-            'timestamp': int(time.time() * 1000)
-        }
-
-@st.cache_data(ttl=60)
-def get_funding_rates(limit=10):
-    """
-    Получение ставок финансирования с Binance Futures
+    Получение исторических данных о капитализации рынка
     """
     try:
-        exchange = ccxt.binance({
-            'options': {
-                'defaultType': 'future',
-            }
-        })
+        # В реальном приложении здесь должен быть запрос к API
+        # Для примера генерируем фиктивные данные
+        end_date = datetime.datetime.now()
+        dates = [end_date - datetime.timedelta(days=x) for x in range(30)]
+        dates.reverse()
         
-        funding_rates = exchange.fetch_funding_rates()
+        # Начальная капитализация
+        base_cap = 2000000000000
         
-        # Преобразуем данные в DataFrame
-        data = []
-        for symbol, info in funding_rates.items():
-            if '/USDT' in symbol:
-                data.append({
-                    'symbol': symbol.replace('/USDT', ''),
-                    'rate': info['fundingRate'] * 100,  # в процентах
-                    'timestamp': info['timestamp']
-                })
-        
-        df = pd.DataFrame(data)
-        df = df.sort_values('rate', ascending=False)
-        
-        return df.head(limit)
-    except Exception as e:
-        st.error(f"Ошибка при получении ставок финансирования: {str(e)}")
-        # Возвращаем фиктивные данные в случае ошибки
-        symbols = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'AVAX', 'DOGE', 'DOT', 'MATIC']
-        
-        return pd.DataFrame({
-            'symbol': symbols[:limit],
-            'rate': np.random.normal(0.01, 0.05, limit),
-            'timestamp': [int(time.time() * 1000)] * limit
-        })
-
-@st.cache_data(ttl=60)
-def get_volatility_heatmap():
-    """
-    Получение данных для тепловой карты волатильности с CryptoCompare API
-    """
-    try:
-        # Получаем данные о топ-20 монетах с CoinGecko для тепловой карты
-        top_coins = get_top_coins(limit=20)
-        
-        # Используем реальные данные изменения цены за 24 часа
-        symbols = top_coins['symbol'].tolist()
-        changes = top_coins['price_change_percentage_24h'].tolist()
-        
-        # Добавляем данные из CryptoCompare для BTC
-        try:
-            url = "https://min-api.cryptocompare.com/data/v2/histoday"
-            params = {
-                'fsym': 'BTC',
-                'tsym': 'USD',
-                'limit': 30
-            }
-            
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
-            if data['Response'] == 'Success':
-                # Получаем данные о ценах за последние 30 дней
-                prices_data = data['Data']['Data']
-                
-                # Добавляем данные о BTC за последние дни
-                for i in range(1, min(8, len(prices_data))):
-                    prev_close = prices_data[i-1]['close']
-                    curr_close = prices_data[i]['close']
-                    
-                    # Рассчитываем процентное изменение
-                    if prev_close > 0:
-                        percent_change = ((curr_close - prev_close) / prev_close) * 100
-                    else:
-                        percent_change = 0
-                    
-                    # Форматируем дату
-                    timestamp = prices_data[i]['time']
-                    date_str = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d')
-                    
-                    # Добавляем в список символов и изменений
-                    symbols.append(f"BTC-{date_str}")
-                    changes.append(percent_change)
-        except Exception as e:
-            st.warning(f"Не удалось получить исторические данные BTC: {str(e)}")
-        
-        # Добавляем искусственные экстремальные значения для лучшей цветовой дифференциации
-        # Это гарантирует, что цветовая шкала будет иметь достаточный диапазон
-        symbols.append("_max_value_")
-        changes.append(10.0)  # Максимальное положительное значение
-        
-        symbols.append("_min_value_")
-        changes.append(-10.0)  # Максимальное отрицательное значение
+        # Генерируем данные с трендом роста
+        caps = []
+        for i in range(30):
+            # Добавляем тренд роста и случайные колебания
+            trend_factor = 1 + (i * 0.01)  # Увеличение на 1% каждый день
+            random_factor = np.random.normal(1, 0.02)  # Случайные колебания ±2%
+            cap = base_cap * trend_factor * random_factor
+            caps.append(cap)
         
         return {
-            'symbols': symbols,
-            'changes': changes
+            'dates': dates,
+            'caps': caps
         }
     except Exception as e:
-        st.error(f"Ошибка при получении данных для тепловой карты: {str(e)}")
+        st.error(f"Ошибка при получении исторических данных о капитализации: {str(e)}")
         # Возвращаем фиктивные данные в случае ошибки
-        symbols = ['BTC', 'ETH', 'USDT', 'BNB', 'SOL', 'XRP', 'USDC', 'ADA', 'AVAX', 'DOGE',
-                  'DOT', 'MATIC', 'SHIB', 'TRX', 'TON', 'LINK', 'UNI', 'ATOM', 'LTC', 'BCH']
-        
-        # Генерируем разнообразные изменения для визуализации
-        changes = []
-        for _ in range(len(symbols)):
-            # Генерируем значения от -10 до +10 с большей вероятностью экстремальных значений
-            change = np.random.choice([-1, 1]) * (np.random.random() * 10)
-            changes.append(change)
-        
-        # Добавляем искусственные экстремальные значения для лучшей цветовой дифференциации
-        symbols.append("_max_value_")
-        changes.append(10.0)
-        
-        symbols.append("_min_value_")
-        changes.append(-10.0)
-        
+        end_date = datetime.datetime.now()
+        dates = [end_date - datetime.timedelta(days=x) for x in range(30)]
+        dates.reverse()
+        caps = [2000000000000 * (1 + (i * 0.01)) for i in range(30)]
         return {
-            'symbols': symbols,
-            'changes': changes
+            'dates': dates,
+            'caps': caps
         }
-
-def color_percent(val):
-    """
-    Функция для окрашивания процентных значений
-    """
-    if isinstance(val, (int, float)):
-        color = 'green' if val >= 0 else 'red'
-        return f'color: {color}'
-    return ''
 
 def render_home_page():
     """
@@ -270,141 +148,103 @@ def render_home_page():
     col1, col2 = st.columns([0.67, 0.33])
     
     with col1:
-        # ❶ Топ-10 криптоактивов (перемещено влево)
-        st.subheader("📊 Топ-10 криптоактивов")
+        # Криптопузыри (Bubble Chart) вместо тепловой карты
+        st.subheader("🔮 Криптопузыри")
         
-        # Получаем данные о топ-монетах
-        df = get_top_coins()[['symbol', 'name', 'current_price', 'price_change_percentage_24h', 'total_volume', 'market_cap']]
-        df.columns = ['Symbol', 'Name', 'Price', '24h %', 'Volume', 'Market Cap']
+        # Получаем данные о топ-20 монетах
+        df = get_top_coins(limit=20)
         
-        # Сбрасываем индекс и начинаем нумерацию с 1
-        df = df.reset_index(drop=True)
-        df.index = df.index + 1
+        # Создаем DataFrame для визуализации
+        bubble_df = df[['symbol', 'name', 'current_price', 'price_change_percentage_24h', 'market_cap', 'total_volume']]
         
-        # Отображаем таблицу с форматированием (без слайдера и без высоты)
-        # Заменяем устаревший метод applymap на map
-        st.dataframe(
-            df.style.format({
-                'Price': '${:.2f}',
-                '24h %': '{:.2f}%',
-                'Volume': '${:,.0f}',
-                'Market Cap': '${:,.0f}'
-            }).map(color_percent, subset=['24h %']),
-            use_container_width=True
+        # Определяем цвета для пузырей на основе процентного изменения
+        colors = []
+        for change in bubble_df['price_change_percentage_24h']:
+            if change >= 3:
+                colors.append('#00FF00')  # Ярко-зеленый для сильного роста
+            elif change > 0:
+                colors.append('#90EE90')  # Светло-зеленый для умеренного роста
+            elif change > -3:
+                colors.append('#FFA07A')  # Светло-красный для умеренного падения
+            else:
+                colors.append('#FF0000')  # Ярко-красный для сильного падения
+        
+        bubble_df['color'] = colors
+        
+        # Создаем пузырьковую диаграмму с помощью Plotly
+        fig = px.scatter(
+            bubble_df,
+            x='total_volume',
+            y='price_change_percentage_24h',
+            size='market_cap',
+            color='symbol',
+            hover_name='name',
+            text='symbol',
+            size_max=60,
+            title="Криптопузыри: размер = капитализация, положение = объем и % изменения"
         )
         
-        # ❷ Глубина рынка (ордербук) - перемещено влево
-        st.subheader("📚 Глубина рынка (Ордербук)")
-        
-        # Выбор пары для ордербука (без слайдера)
-        orderbook_symbol = st.selectbox(
-            label="Выберите торговую пару",
-            options=["BTC/USDT", "ETH/USDT"],
-            index=0
-        )
-        
-        symbol, vs_currency = orderbook_symbol.split('/')
-        
-        # Получаем данные ордербука
-        orderbook = get_orderbook(symbol=symbol, vs_currency=vs_currency)
-        
-        # Создаем две колонки для отображения ордербука
-        ob_col1, ob_col2 = st.columns(2)
-        
-        with ob_col1:
-            st.markdown("### Покупки (Bids)")
-            
-            # Форматируем данные
-            bids_df = orderbook['bids'].copy()
-            bids_df.columns = ['Цена', 'Объем']
-            bids_df['Сумма'] = bids_df['Цена'] * bids_df['Объем']
-            
-            # Сбрасываем индекс и начинаем нумерацию с 1
-            bids_df = bids_df.reset_index(drop=True)
-            bids_df.index = bids_df.index + 1
-            
-            # Отображаем таблицу без высоты
-            st.dataframe(
-                bids_df.style.format({
-                    'Цена': '${:.2f}',
-                    'Объем': '{:.4f}',
-                    'Сумма': '${:.2f}'
-                }),
-                use_container_width=True
+        # Настраиваем внешний вид
+        fig.update_traces(
+            textposition='top center',
+            marker=dict(
+                sizemode='area',
+                sizeref=2.*max(bubble_df['market_cap'])/(60.**2),
+                line=dict(width=2, color='DarkSlateGrey')
             )
-        
-        with ob_col2:
-            st.markdown("### Продажи (Asks)")
-            
-            # Форматируем данные
-            asks_df = orderbook['asks'].copy()
-            asks_df.columns = ['Цена', 'Объем']
-            asks_df['Сумма'] = asks_df['Цена'] * asks_df['Объем']
-            
-            # Сбрасываем индекс и начинаем нумерацию с 1
-            asks_df = asks_df.reset_index(drop=True)
-            asks_df.index = asks_df.index + 1
-            
-            # Отображаем таблицу без высоты
-            st.dataframe(
-                asks_df.style.format({
-                    'Цена': '${:.2f}',
-                    'Объем': '{:.4f}',
-                    'Сумма': '${:.2f}'
-                }),
-                use_container_width=True
-            )
-        
-        # ❸ Heatmap волатильности (Plotly) с новыми данными
-        st.subheader("🔥 Тепловая карта волатильности (24ч)")
-        
-        # Получаем данные для тепловой карты с нового API
-        heatmap_data = get_volatility_heatmap()
-        
-        # Создаем DataFrame для тепловой карты
-        heatmap_df = pd.DataFrame({
-            'symbol': heatmap_data['symbols'],
-            'change': heatmap_data['changes']
-        })
-        
-        # Удаляем искусственные экстремальные значения перед отображением
-        heatmap_df = heatmap_df[~heatmap_df['symbol'].isin(['_max_value_', '_min_value_'])]
-        
-        # Определяем минимальное и максимальное значения для цветовой шкалы
-        min_change = -10
-        max_change = 10
-        
-        # Создаем тепловую карту с улучшенной визуализацией
-        fig = px.treemap(
-            heatmap_df,
-            path=['symbol'],
-            values=abs(heatmap_df['change']) + 1,  # Добавляем 1, чтобы даже малые изменения были видны
-            color='change',
-            color_continuous_scale='RdYlGn',
-            color_continuous_midpoint=0,
-            range_color=[min_change, max_change],  # Устанавливаем фиксированный диапазон для цветовой шкалы
-            title="Изменение цены за 24ч (%)"
         )
         
         fig.update_layout(
-            height=400,
-            margin=dict(l=0, r=0, t=30, b=0)
+            height=600,
+            xaxis=dict(
+                title="Объем торгов за 24ч (USD)",
+                type='log',
+                showgrid=True
+            ),
+            yaxis=dict(
+                title="Изменение цены за 24ч (%)",
+                showgrid=True
+            ),
+            showlegend=False
         )
         
-        # Добавляем текст с процентами изменения
-        fig.update_traces(
-            textinfo="label+text",
-            text=[f"{x:.1f}%" for x in heatmap_df['change']],
-            hovertemplate='<b>%{label}</b><br>Изменение: %{customdata:.2f}%<extra></extra>',
-            customdata=heatmap_df['change']
-        )
-        
+        # Отображаем график
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Добавляем пояснение к диаграмме
+        st.markdown("""
+        **Пояснение к диаграмме:**
+        - **Размер пузыря**: Рыночная капитализация (Market Cap)
+        - **Положение по X**: Объем торгов за 24ч (Volume)
+        - **Положение по Y**: Изменение цены за 24ч (%)
+        - **Цвет**: Уникальный для каждой криптовалюты
+        """)
+        
+        # Добавляем таблицу с данными под диаграммой для справки
+        with st.expander("Показать данные"):
+            st.dataframe(
+                bubble_df[['symbol', 'name', 'current_price', 'price_change_percentage_24h', 'market_cap', 'total_volume']].rename(
+                    columns={
+                        'symbol': 'Символ',
+                        'name': 'Название',
+                        'current_price': 'Цена (USD)',
+                        'price_change_percentage_24h': 'Изменение за 24ч (%)',
+                        'market_cap': 'Капитализация (USD)',
+                        'total_volume': 'Объем за 24ч (USD)'
+                    }
+                ).style.format({
+                    'Цена (USD)': '${:.2f}',
+                    'Изменение за 24ч (%)': '{:.2f}%',
+                    'Капитализация (USD)': '${:,.0f}',
+                    'Объем за 24ч (USD)': '${:,.0f}'
+                }),
+                use_container_width=True
+            )
     
     with col2:
         # Правая колонка - метрики в столбик
         
-        # ❹ Fear & Greed Index
+        # ❹ Fear & Greed Index с использованием нативных компонентов Streamlit
         st.subheader("😱 Fear & Greed Index")
         
         # Получаем данные
@@ -412,122 +252,108 @@ def render_home_page():
         fear_value = fear_greed['value']
         fear_label = fear_greed['value_classification']
         
-        # Определяем цвет индикатора
-        if fear_value <= 25:
-            fear_color = "red"
-        elif fear_value <= 45:
-            fear_color = "orange"
-        elif fear_value <= 55:
-            fear_color = "yellow"
-        elif fear_value <= 75:
-            fear_color = "light green"
-        else:
-            fear_color = "green"
-        
+        # Отображаем метрику
         st.metric(
             label=f"Fear & Greed Index ({fear_label})",
             value=fear_value,
             delta=None
         )
         
-        # Создаем индикатор
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=fear_value,
-            domain={'x': [0, 1], 'y': [0, 1]},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'color': fear_color},
-                'steps': [
-                    {'range': [0, 25], 'color': 'rgba(255, 0, 0, 0.3)'},
-                    {'range': [25, 45], 'color': 'rgba(255, 165, 0, 0.3)'},
-                    {'range': [45, 55], 'color': 'rgba(255, 255, 0, 0.3)'},
-                    {'range': [55, 75], 'color': 'rgba(144, 238, 144, 0.3)'},
-                    {'range': [75, 100], 'color': 'rgba(0, 128, 0, 0.3)'}
-                ]
-            }
-        ))
+        # Создаем индикатор с помощью Streamlit
+        # Определяем цвет и метку в зависимости от значения
+        if fear_value <= 25:
+            fear_color = "red"
+            fear_text = "Extreme Fear"
+        elif fear_value <= 45:
+            fear_color = "orange"
+            fear_text = "Fear"
+        elif fear_value <= 55:
+            fear_color = "yellow"
+            fear_text = "Neutral"
+        elif fear_value <= 75:
+            fear_color = "lightgreen"
+            fear_text = "Greed"
+        else:
+            fear_color = "green"
+            fear_text = "Extreme Greed"
         
-        fig.update_layout(
-            height=200,
-            margin=dict(l=10, r=10, t=10, b=10)
-        )
+        # Создаем прогресс-бар для визуализации
+        st.progress(fear_value/100, text=f"{fear_value} - {fear_text}")
         
-        st.plotly_chart(fig, use_container_width=True)
+        # Добавляем цветовую шкалу для наглядности
+        cols = st.columns(5)
+        with cols[0]:
+            st.markdown(f'<div style="background-color:red;height:10px;border-radius:3px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-size:10px;">0-25</div>', unsafe_allow_html=True)
+        with cols[1]:
+            st.markdown(f'<div style="background-color:orange;height:10px;border-radius:3px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-size:10px;">26-45</div>', unsafe_allow_html=True)
+        with cols[2]:
+            st.markdown(f'<div style="background-color:yellow;height:10px;border-radius:3px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-size:10px;">46-55</div>', unsafe_allow_html=True)
+        with cols[3]:
+            st.markdown(f'<div style="background-color:lightgreen;height:10px;border-radius:3px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-size:10px;">56-75</div>', unsafe_allow_html=True)
+        with cols[4]:
+            st.markdown(f'<div style="background-color:green;height:10px;border-radius:3px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-size:10px;">76-100</div>', unsafe_allow_html=True)
         
-        # ❺ Доминирование BTC
+        # ❺ Доминирование BTC с использованием нативных компонентов Streamlit
         st.subheader("🏆 Доминирование BTC")
         
         # Получаем данные
         global_data = get_market_global_data()
         btc_dominance = global_data['market_cap_percentage']['btc']
+        eth_dominance = global_data['market_cap_percentage']['eth']
+        other_dominance = 100 - btc_dominance - eth_dominance
         
+        # Отображаем метрику
         st.metric(
             label="Доминирование BTC",
             value=f"{btc_dominance:.2f}%",
             delta=f"{global_data['market_cap_change_percentage_24h_usd']:.2f}%"
         )
         
-        # Создаем круговую диаграмму для визуализации доминирования
-        dominance_data = {
-            'Актив': ['Bitcoin', 'Ethereum', 'Другие'],
-            'Доля': [
-                global_data['market_cap_percentage']['btc'],
-                global_data['market_cap_percentage']['eth'],
-                100 - global_data['market_cap_percentage']['btc'] - global_data['market_cap_percentage']['eth']
-            ]
-        }
+        # Создаем данные для круговой диаграммы
+        dominance_data = pd.DataFrame({
+            'Категория': ['Bitcoin', 'Ethereum', 'Другие'],
+            'Процент': [btc_dominance, eth_dominance, other_dominance]
+        })
         
-        dominance_df = pd.DataFrame(dominance_data)
-        
-        fig = px.pie(
-            dominance_df,
-            values='Доля',
-            names='Актив',
-            color_discrete_sequence=['#F7931A', '#627EEA', '#8C8C8C']
+        # Отображаем круговую диаграмму с помощью Streamlit
+        st.bar_chart(
+            dominance_data,
+            x='Категория',
+            y='Процент',
+            use_container_width=True
         )
         
-        fig.update_layout(
-            height=200,
-            margin=dict(l=10, r=10, t=10, b=10)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # ❻ Общая капитализация
+        # ❻ Общая капитализация с использованием нативных компонентов Streamlit
         st.subheader("💰 Общая капитализация")
         
         total_market_cap = global_data['total_market_cap']['usd']
         total_volume = global_data['total_volume']['usd']
         
+        # Отображаем метрику
         st.metric(
             label="Общая капитализация",
             value=f"${total_market_cap / 1e12:.2f}T",
             delta=f"Vol: ${total_volume / 1e9:.2f}B"
         )
         
-        # Добавляем график изменения капитализации (фиктивные данные)
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=30, freq='D')
-        cap_values = [total_market_cap * (1 + np.random.normal(0, 0.02)) for _ in range(30)]
+        # Получаем исторические данные о капитализации
+        historical_data = get_historical_market_cap()
         
+        # Создаем DataFrame для графика
         cap_df = pd.DataFrame({
-            'Дата': dates,
-            'Капитализация': cap_values
+            'Дата': historical_data['dates'],
+            'Капитализация': historical_data['caps']
         })
         
-        fig = px.line(
+        # Используем st.line_chart для создания линейного графика
+        st.line_chart(
             cap_df,
             x='Дата',
             y='Капитализация',
-            color_discrete_sequence=['#1E88E5']
+            use_container_width=True
         )
-        
-        fig.update_layout(
-            height=200,
-            margin=dict(l=10, r=10, t=10, b=10),
-            yaxis=dict(
-                tickformat='$.2s'
-            )
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
