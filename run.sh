@@ -1,34 +1,38 @@
 #!/bin/bash
 
-# Скрипт для запуска приложения Binance ATR Monitor с WebSocket
+# Пути и параметры (настройте под свой проект)
+FASTAPI_DIR="/app"
+STREAMLIT_DIR="/app"
+FASTAPI_PORT=8008
+STREAMLIT_PORT=8005
 
-# Цвета для вывода
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Функция для перезапуска FastAPI
+restart_fastapi() {
+    echo "Останавливаю FastAPI..."
+    pkill -f "uvicorn main:app --host 0.0.0.0 --port $FASTAPI_PORT"
 
-echo -e "${YELLOW}Запуск Binance Futures ATR Monitor (WebSocket)${NC}"
+    echo "Запускаю FastAPI..."
+    cd "$FASTAPI_DIR" || exit
+    nohup uvicorn main:app --host 0.0.0.0 --port $FASTAPI_PORT > fastapi.log 2>&1 &
+    echo "FastAPI запущен на порту $FASTAPI_PORT"
+}
 
-# Проверяем наличие необходимых пакетов
-echo -e "${GREEN}Проверка зависимостей...${NC}"
-pip install -r app/requirements.txt
+# Функция для перезапуска Streamlit
+restart_streamlit() {
+    echo "Останавливаю Streamlit..."
+    pkill -f "streamlit run app.py --server.port $STREAMLIT_PORT"
 
-# Запускаем FastAPI сервер в фоновом режиме с явным указанием порта 8008
-echo -e "${GREEN}Запуск FastAPI сервера на порту 8008...${NC}"
-cd "$(dirname "$0")"
-python -m uvicorn app.api.endpoints:app --host 0.0.0.0 --port 8008 &
-FASTAPI_PID=$!
+    echo "Запускаю Streamlit..."
+    cd "$STREAMLIT_DIR" || exit
+    nohup streamlit run app.py --server.port $STREAMLIT_PORT > streamlit.log 2>&1 &
+    echo "Streamlit запущен на порту $STREAMLIT_PORT"
+}
 
-# Ждем запуска сервера
-echo -e "${YELLOW}Ожидание запуска сервера...${NC}"
-sleep 3
-
-# Запускаем Streamlit на порту 8005
-echo -e "${GREEN}Запуск Streamlit интерфейса на порту 8005...${NC}"
-streamlit run app/streamlit_app.py --server.port=8005
-
-# При завершении работы Streamlit, останавливаем FastAPI сервер
-echo -e "${YELLOW}Завершение работы...${NC}"
-kill $FASTAPI_PID
-
-echo -e "${GREEN}Готово!${NC}"
+# Основной скрипт
+echo "=== Перезапуск приложений ==="
+restart_fastapi
+restart_streamlit
+echo "============================"
+echo "Готово! Проверьте логи:"
+echo "FastAPI: $FASTAPI_DIR/fastapi.log"
+echo "Streamlit: $STREAMLIT_DIR/streamlit.log"
