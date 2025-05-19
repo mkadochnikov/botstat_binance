@@ -20,7 +20,7 @@ except ImportError:
 # Настройка страницы Streamlit
 st.set_page_config(
     page_title="Ultimate Crypto Analytics",
-    page_icon="📊",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
