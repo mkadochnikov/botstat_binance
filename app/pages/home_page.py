@@ -139,7 +139,7 @@ def render_home_page():
     """
     Отрисовка главной страницы дашборда
     """
-    st.title("Ultimate Crypto Analytics")
+    st.title("Crypto Analytics")
     
     # Создаем две колонки для верстки с новым соотношением
     col1, col2 = st.columns([0.67, 0.33])
