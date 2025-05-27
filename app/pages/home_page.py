@@ -9,9 +9,10 @@ import logging
 import traceback
 import sys
 import os
+import time
 
 # Добавляем путь к корневой директории проекта
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Импортируем модуль для получения данных из базы
 from app.data_fetcher_db import (
