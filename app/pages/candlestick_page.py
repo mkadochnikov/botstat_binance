@@ -136,25 +136,10 @@ def get_candlestick_data(symbol, start_date, end_date, limit=1000):
         rows = cursor.fetchall()
         df = pd.DataFrame(rows)
         
-        # Проверяем наличие всех необходимых столбцов
-        required_columns = ['open_time', 'open_price', 'high_price', 'low_price', 'close_price', 'volume']
-        for col in required_columns:
-            if col not in df.columns:
-                st.error(f"Отсутствует столбец {col} в данных")
-                return pd.DataFrame()
-        
         # Преобразуем числовые столбцы в float
         for col in ['open_price', 'high_price', 'low_price', 'close_price', 'volume']:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-        
-        # Удаляем строки с пропущенными значениями
-        df = df.dropna(subset=['open_price', 'high_price', 'low_price', 'close_price'])
-        
-        # Выводим информацию о данных для отладки
-        st.sidebar.caption(f"Получено {len(df)} строк данных")
-        if not df.empty:
-            st.sidebar.caption(f"Диапазон дат: {df['open_time'].min()} - {df['open_time'].max()}")
+                df[col] = pd.to_numeric(df[col])
         
         return df
     except Exception as e:
@@ -219,14 +204,14 @@ def render_candlestick_page():
         col1, col2 = st.columns(2)
         with col1:
             # Устанавливаем начальную дату на 30 дней назад от текущей даты
-            default_start_date = datetime.date(2023, 1, 1)
+            default_start_date = datetime.date(2025, 4, 28)
             start_date = st.date_input(
                 "Начальная дата",
                 value=default_start_date
             )
         with col2:
             # Устанавливаем конечную дату на текущую дату
-            default_end_date = datetime.date(2023, 1, 31)
+            default_end_date = datetime.date(2025, 5, 20)
             end_date = st.date_input(
                 "Конечная дата",
                 value=default_end_date
@@ -274,10 +259,6 @@ def render_candlestick_page():
     if df.empty:
         st.warning("Нет данных для отображения. Попробуйте изменить параметры запроса.")
         return
-    
-    # Выводим первые несколько строк данных для отладки
-    st.caption("Пример данных для построения графика:")
-    st.write(df.head(3))
     
     # Рассчитываем скользящие средние, если включены
     if show_ma:
