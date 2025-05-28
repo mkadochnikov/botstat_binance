@@ -1,9 +1,11 @@
 """
 Страница для отображения свечных графиков на основе данных из базы PostgreSQL.
+Улучшенная версия с современным дизайном и адаптивной шириной.
 """
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import datetime
@@ -16,6 +18,32 @@ DB_NAME = "postgres"
 DB_USER = "postgres"
 DB_PASSWORD = "mysecretpassword"
 DB_SCHEMA = "all_futures"  # Используем схему all_futures
+
+# Цветовые схемы для графиков
+CHART_COLORS = {
+    'light': {
+        'bg_color': '#FFFFFF',
+        'plot_bg_color': '#F8F9FA',
+        'grid_color': '#E9ECEF',
+        'text_color': '#212529',
+        'increasing_color': '#26A69A',
+        'decreasing_color': '#EF5350',
+        'volume_color': 'rgba(100, 181, 246, 0.5)',
+        'volume_line_color': 'rgba(100, 181, 246, 1.0)',
+        'axis_color': '#ADB5BD'
+    },
+    'dark': {
+        'bg_color': '#1E1E1E',
+        'plot_bg_color': '#2D2D2D',
+        'grid_color': '#3D3D3D',
+        'text_color': '#E0E0E0',
+        'increasing_color': '#00C853',
+        'decreasing_color': '#FF5252',
+        'volume_color': 'rgba(66, 165, 245, 0.4)',
+        'volume_line_color': 'rgba(66, 165, 245, 0.8)',
+        'axis_color': '#757575'
+    }
+}
 
 def connect_to_db():
     """
@@ -121,6 +149,23 @@ def get_candlestick_data(symbol, start_date, end_date, limit=1000):
         if conn:
             conn.close()
 
+def calculate_moving_averages(df, short_period=20, long_period=50):
+    """
+    Расчет скользящих средних для графика.
+    
+    Args:
+        df: DataFrame с данными
+        short_period: Период короткой скользящей средней
+        long_period: Период длинной скользящей средней
+        
+    Returns:
+        DataFrame: Дополненный DataFrame со скользящими средними
+    """
+    if not df.empty and 'close_price' in df.columns:
+        df['MA_short'] = df['close_price'].rolling(window=short_period).mean()
+        df['MA_long'] = df['close_price'].rolling(window=long_period).mean()
+    return df
+
 def render_candlestick_page():
     """
     Отображение страницы со свечными графиками.
@@ -137,6 +182,16 @@ def render_candlestick_page():
     # Боковая панель с настройками
     with st.sidebar:
         st.header("Настройки графика")
+        
+        # Выбор темы графика
+        theme = st.selectbox(
+            "Тема графика",
+            options=["Светлая", "Тёмная"],
+            index=0
+        )
+        
+        # Определяем цветовую схему на основе выбранной темы
+        color_scheme = CHART_COLORS['dark'] if theme == "Тёмная" else CHART_COLORS['light']
         
         # Выбор торговой пары
         selected_symbol = st.selectbox(
@@ -178,6 +233,20 @@ def render_candlestick_page():
             step=100
         )
         
+        # Дополнительные настройки графика
+        show_ma = st.checkbox("Показать скользящие средние", value=True)
+        
+        if show_ma:
+            ma_col1, ma_col2 = st.columns(2)
+            with ma_col1:
+                ma_short = st.number_input("Короткая MA", min_value=5, max_value=50, value=20, step=1)
+            with ma_col2:
+                ma_long = st.number_input("Длинная MA", min_value=20, max_value=200, value=50, step=5)
+        
+        # Настройки отображения
+        show_volume = st.checkbox("Показать объем торгов", value=True)
+        show_tooltips = st.checkbox("Расширенные подсказки", value=True)
+        
         # Кнопка обновления
         refresh_button = st.button("Обновить график")
     
@@ -191,49 +260,174 @@ def render_candlestick_page():
         st.warning("Нет данных для отображения. Попробуйте изменить параметры запроса.")
         return
     
-    # Создаем свечной график с помощью Plotly
-    fig = go.Figure(data=[go.Candlestick(
-        x=df['open_time'],
-        open=df['open_price'],
-        high=df['high_price'],
-        low=df['low_price'],
-        close=df['close_price'],
-        name=selected_symbol
-    )])
+    # Рассчитываем скользящие средние, если включены
+    if show_ma:
+        df = calculate_moving_averages(df, ma_short, ma_long)
     
-    # Добавляем объем торгов внизу графика
-    fig.add_trace(go.Bar(
-        x=df['open_time'],
-        y=df['volume'],
-        name='Объем',
-        marker_color='rgba(0, 0, 255, 0.5)',
-        yaxis='y2'
-    ))
+    # Создаем подграфики для свечей и объема
+    if show_volume:
+        fig = make_subplots(
+            rows=2, 
+            cols=1, 
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            row_heights=[0.8, 0.2]
+        )
+    else:
+        fig = make_subplots(rows=1, cols=1)
+    
+    # Добавляем свечной график
+    fig.add_trace(
+        go.Candlestick(
+            x=df['open_time'],
+            open=df['open_price'],
+            high=df['high_price'],
+            low=df['low_price'],
+            close=df['close_price'],
+            name=selected_symbol,
+            increasing_line_color=color_scheme['increasing_color'],
+            decreasing_line_color=color_scheme['decreasing_color'],
+            increasing_fillcolor=color_scheme['increasing_color'],
+            decreasing_fillcolor=color_scheme['decreasing_color'],
+            line=dict(width=1),
+            opacity=1
+        ),
+        row=1, col=1
+    )
+    
+    # Добавляем скользящие средние, если включены
+    if show_ma and 'MA_short' in df.columns and 'MA_long' in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df['open_time'],
+                y=df['MA_short'],
+                name=f'MA {ma_short}',
+                line=dict(color='rgba(255, 193, 7, 1)', width=1.5),
+                opacity=0.8
+            ),
+            row=1, col=1
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=df['open_time'],
+                y=df['MA_long'],
+                name=f'MA {ma_long}',
+                line=dict(color='rgba(33, 150, 243, 1)', width=1.5),
+                opacity=0.8
+            ),
+            row=1, col=1
+        )
+    
+    # Добавляем объем торгов, если включен
+    if show_volume:
+        # Определяем цвета для объема в зависимости от направления свечи
+        colors = []
+        for i in range(len(df)):
+            if i > 0:
+                if df['close_price'].iloc[i] > df['close_price'].iloc[i-1]:
+                    colors.append(color_scheme['increasing_color'])
+                else:
+                    colors.append(color_scheme['decreasing_color'])
+            else:
+                colors.append(color_scheme['decreasing_color'])
+        
+        fig.add_trace(
+            go.Bar(
+                x=df['open_time'],
+                y=df['volume'],
+                name='Объем',
+                marker=dict(
+                    color=colors,
+                    line=dict(
+                        color=colors,
+                        width=1
+                    ),
+                    opacity=0.7
+                )
+            ),
+            row=2, col=1
+        )
     
     # Настраиваем макет графика
     fig.update_layout(
-        title=f'{selected_symbol} - Свечной график',
+        title=dict(
+            text=f'{selected_symbol} - Свечной график',
+            font=dict(size=24, color=color_scheme['text_color'])
+        ),
+        paper_bgcolor=color_scheme['bg_color'],
+        plot_bgcolor=color_scheme['plot_bg_color'],
         xaxis_title='Время',
         yaxis_title='Цена',
         xaxis_rangeslider_visible=False,  # Отключаем ползунок внизу для экономии места
-        height=600,
-        yaxis2=dict(
-            title='Объем',
-            overlaying='y',
-            side='right',
-            showgrid=False
-        ),
+        height=700,  # Увеличиваем высоту для лучшего отображения
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="right",
-            x=1
+            x=1,
+            font=dict(color=color_scheme['text_color']),
+            bgcolor='rgba(0,0,0,0)'
+        ),
+        margin=dict(l=10, r=10, t=50, b=10),  # Уменьшаем отступы для максимального использования пространства
+        hovermode='x unified' if show_tooltips else 'closest',
+        hoverlabel=dict(
+            bgcolor=color_scheme['bg_color'],
+            font_size=12,
+            font_color=color_scheme['text_color']
         )
     )
     
-    # Отображаем график
-    st.plotly_chart(fig, use_container_width=True)
+    # Настраиваем оси
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor=color_scheme['grid_color'],
+        zeroline=False,
+        showline=True,
+        linewidth=1,
+        linecolor=color_scheme['axis_color'],
+        tickfont=dict(color=color_scheme['text_color']),
+        title_font=dict(color=color_scheme['text_color'])
+    )
+    
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=color_scheme['grid_color'],
+        zeroline=False,
+        showline=True,
+        linewidth=1,
+        linecolor=color_scheme['axis_color'],
+        tickfont=dict(color=color_scheme['text_color']),
+        title_font=dict(color=color_scheme['text_color']),
+        row=1, col=1
+    )
+    
+    if show_volume:
+        fig.update_yaxes(
+            showgrid=True,
+            gridcolor=color_scheme['grid_color'],
+            zeroline=False,
+            showline=True,
+            linewidth=1,
+            linecolor=color_scheme['axis_color'],
+            tickfont=dict(color=color_scheme['text_color']),
+            title_text='Объем',
+            title_font=dict(color=color_scheme['text_color']),
+            row=2, col=1
+        )
+    
+    # Добавляем анимацию при загрузке
+    fig.update_layout(
+        transition_duration=500,
+        transition=dict(
+            duration=500,
+            easing='cubic-in-out'
+        )
+    )
+    
+    # Отображаем график с шириной 100%
+    st.plotly_chart(fig, use_container_width=True, theme=None)
     
     # Отображаем таблицу с данными
     with st.expander("Показать данные"):
@@ -244,22 +438,81 @@ def render_candlestick_page():
         last_candle = df.iloc[-1]
         st.subheader("Информация о последней свече")
         
+        # Стилизуем метрики
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Открытие", f"{last_candle['open_price']:.2f}")
-        col2.metric("Максимум", f"{last_candle['high_price']:.2f}")
-        col3.metric("Минимум", f"{last_candle['low_price']:.2f}")
-        col4.metric("Закрытие", f"{last_candle['close_price']:.2f}")
+        
+        # Определяем цвет для значений в зависимости от изменения цены
+        price_change = last_candle['close_price'] - last_candle['open_price']
+        price_color = "green" if price_change >= 0 else "red"
+        
+        col1.metric(
+            "Открытие", 
+            f"{last_candle['open_price']:.2f}"
+        )
+        
+        col2.metric(
+            "Максимум", 
+            f"{last_candle['high_price']:.2f}"
+        )
+        
+        col3.metric(
+            "Минимум", 
+            f"{last_candle['low_price']:.2f}"
+        )
+        
+        col4.metric(
+            "Закрытие", 
+            f"{last_candle['close_price']:.2f}"
+        )
         
         # Изменение цены
-        price_change = last_candle['close_price'] - last_candle['open_price']
         price_change_pct = (price_change / last_candle['open_price']) * 100
         
         col1, col2 = st.columns(2)
-        col1.metric("Изменение", f"{price_change:.2f}", f"{price_change_pct:.2f}%")
-        col2.metric("Объем", f"{last_candle['volume']:.2f}")
+        col1.metric(
+            "Изменение", 
+            f"{price_change:.2f}", 
+            f"{price_change_pct:.2f}%",
+            delta_color="normal"
+        )
+        
+        col2.metric(
+            "Объем", 
+            f"{last_candle['volume']:.2f}"
+        )
 
 # Основная функция страницы
 def main():
+    # Настройка страницы
+    st.set_page_config(
+        page_title="Свечные графики криптовалют",
+        page_icon="📈",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Добавляем CSS для улучшения внешнего вида
+    st.markdown("""
+    <style>
+    .stApp {
+        max-width: 100%;
+    }
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    h1, h2, h3 {
+        margin-bottom: 1rem;
+    }
+    .stMetric {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+        padding: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     render_candlestick_page()
 
 if __name__ == "__main__":
