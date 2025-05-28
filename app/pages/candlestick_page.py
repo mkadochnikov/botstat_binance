@@ -148,26 +148,19 @@ def render_candlestick_page():
         # Выбор временного диапазона
         col1, col2 = st.columns(2)
         with col1:
-            # Устанавливаем начальную дату на 30 дней назад от текущей даты
-            default_start_date = datetime.date(2025, 4, 28)
             start_date = st.date_input(
                 "Начальная дата",
-                value=default_start_date
+                value=datetime.date.today() - datetime.timedelta(days=7)
             )
         with col2:
-            # Устанавливаем конечную дату на текущую дату
-            default_end_date = datetime.date(2025, 5, 20)
             end_date = st.date_input(
                 "Конечная дата",
-                value=default_end_date
+                value=datetime.date.today()
             )
         
         # Преобразуем даты в datetime
         start_datetime = datetime.datetime.combine(start_date, datetime.time.min)
         end_datetime = datetime.datetime.combine(end_date, datetime.time.max)
-        
-        # Выводим информацию о выбранном диапазоне для отладки
-        st.sidebar.caption(f"Запрос данных с {start_datetime} по {end_datetime}")
         
         # Выбор количества свечей
         max_candles = st.slider(
