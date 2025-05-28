@@ -442,5 +442,169 @@ def get_all_atr_data() -> List[Dict[str, Any]]:
         
         # SQL запрос для получения всех данных
         if has_last_updated:
-            query 
-(Content truncated due to size limit. Use line ranges to read in chunks)
+            query = f"""
+            SELECT 
+                symbol, price, 
+                atr_1m, hot_1m, 
+                atr_3m, hot_3m, 
+                atr_5m, hot_5m, 
+                atr_15m, hot_15m, 
+                atr_1h, hot_1h,
+                last_updated
+            FROM {DB_SCHEMA}.{DB_TABLE}
+            ORDER BY symbol
+            """
+        else:
+            query = f"""
+            SELECT 
+                symbol, price, 
+                atr_1m, hot_1m, 
+                atr_3m, hot_3m, 
+                atr_5m, hot_5m, 
+                atr_15m, hot_15m, 
+                atr_1h, hot_1h
+            FROM {DB_SCHEMA}.{DB_TABLE}
+            ORDER BY symbol
+            """
+        
+        logger.debug(f"Executing query: {query}")
+        cursor.execute(query)
+        results = cursor.fetchall()
+        logger.debug(f"Retrieved {len(results)} rows from database")
+        
+        # Преобразуем результаты в формат, совместимый с текущим API
+        formatted_results = []
+        for row in results:
+            # Преобразуем строки в нужный формат
+            timeframes = {
+                "1m": {"atr_percent": float(row["atr_1m"]) if row["atr_1m"] is not None else 0.0, "is_hot": row["hot_1m"]},
+                "3m": {"atr_percent": float(row["atr_3m"]) if row["atr_3m"] is not None else 0.0, "is_hot": row["hot_3m"]},
+                "5m": {"atr_percent": float(row["atr_5m"]) if row["atr_5m"] is not None else 0.0, "is_hot": row["hot_5m"]},
+                "15m": {"atr_percent": float(row["atr_15m"]) if row["atr_15m"] is not None else 0.0, "is_hot": row["hot_15m"]},
+                "1h": {"atr_percent": float(row["atr_1h"]) if row["atr_1h"] is not None else 0.0, "is_hot": row["hot_1h"]}
+            }
+            
+            formatted_results.append({
+                "symbol": row["symbol"],
+                "price": float(row["price"]),
+                "timeframes": timeframes
+            })
+        
+        logger.info(f"Retrieved and formatted {len(formatted_results)} ATR records from database")
+        return formatted_results
+    except Exception as e:
+        logger.error(f"Error retrieving ATR data: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise
+    finally:
+        if conn:
+            release_connection(conn)
+
+def get_last_update_time() -> Optional[datetime]:
+    """
+    Получение времени последнего обновления данных.
+    
+    Returns:
+        Optional[datetime]: Время последнего обновления или None, если данных нет
+    """
+    conn = None
+    try:
+        logger.info("Getting last update time from database")
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Проверяем наличие колонки last_updated
+        has_last_updated = check_column_exists("last_updated", DB_SCHEMA, DB_TABLE)
+        logger.debug(f"Column last_updated exists: {has_last_updated}")
+        
+        if not has_last_updated:
+            # Если колонки нет, возвращаем текущее время
+            logger.warning("Column last_updated does not exist, returning current time")
+            return datetime.now()
+        
+        # SQL запрос для получения максимального времени обновления
+        query = f"""
+        SELECT MAX(last_updated) as last_updated
+        FROM {DB_SCHEMA}.{DB_TABLE}
+        """
+        
+        logger.debug(f"Executing query: {query}")
+        cursor.execute(query)
+        result = cursor.fetchone()
+        
+        if result and result[0]:
+            logger.info(f"Last update time: {result[0]}")
+            return result[0]
+        
+        logger.warning("No last update time found in database")
+        return None
+    except Exception as e:
+        logger.error(f"Error retrieving last update time: {str(e)}")
+        logger.error(traceback.format_exc())
+        return None
+    finally:
+        if conn:
+            release_connection(conn)
+
+def close_connection_pool():
+    """
+    Закрытие пула соединений при завершении работы.
+    """
+    global connection_pool
+    try:
+        if connection_pool:
+            connection_pool.closeall()
+            logger.info("Connection pool closed")
+    except Exception as e:
+        logger.error(f"Error closing connection pool: {str(e)}")
+        logger.error(traceback.format_exc())
+
+def test_database_connection():
+    """
+    Тестирование соединения с базой данных.
+    
+    Returns:
+        bool: True, если соединение успешно, иначе False
+    """
+    conn = None
+    try:
+        logger.info("Testing database connection")
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Проверяем соединение
+        cursor.execute("SELECT 1")
+        result = cursor.fetchone()
+        
+        # Проверяем доступ к схеме
+        cursor.execute(f"SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = '{DB_SCHEMA}')")
+        schema_exists = cursor.fetchone()[0]
+        
+        if not schema_exists:
+            logger.warning(f"Schema {DB_SCHEMA} does not exist")
+            return False
+        
+        # Проверяем доступ к таблице
+        cursor.execute(f"""
+        SELECT EXISTS (
+            SELECT 1 
+            FROM information_schema.tables 
+            WHERE table_schema = '{DB_SCHEMA}' 
+            AND table_name = '{DB_TABLE}'
+        )
+        """)
+        table_exists = cursor.fetchone()[0]
+        
+        if not table_exists:
+            logger.warning(f"Table {DB_SCHEMA}.{DB_TABLE} does not exist")
+            return False
+        
+        logger.info(f"Database connection test successful: {result}, schema exists: {schema_exists}, table exists: {table_exists}")
+        return True
+    except Exception as e:
+        logger.error(f"Database connection test failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        return False
+    finally:
+        if conn:
+            release_connection(conn)
