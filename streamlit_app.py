@@ -1,3 +1,7 @@
+"""
+Модуль для интеграции функций чтения данных из PostgreSQL в основное приложение.
+Заменяет прямые вызовы API на чтение из базы данных.
+"""
 import streamlit as st
 import pandas as pd
 import requests
@@ -8,16 +12,22 @@ import sys
 import json
 from typing import List, Dict, Any, Optional
 
-# Настройка страницы Streamlit - ДОЛЖНА БЫТЬ ПЕРВОЙ КОМАНДОЙ STREAMLIT
+# Добавляем родительскую директорию в путь для импорта
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Импортируем модуль главной страницы с поддержкой базы данных
+try:
+    from pages.home_page_db import render_home_page
+except ImportError:
+    st.error("Не удалось импортировать модуль главной страницы с поддержкой базы данных")
+
+# Настройка страницы Streamlit
 st.set_page_config(
-    page_title="Ultimate Crypto Analytics",
+    page_title="Ultimate Crypto Analytics (DB Version)",
     page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# Добавляем родительскую директорию в путь для импорта
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Скрываем меню и футер Streamlit
 hide_streamlit_style = """
@@ -28,41 +38,10 @@ footer {visibility: hidden;}
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Фиксируем боковое меню при прокрутке
-fixed_sidebar_style = """
-<style>
-    .sidebar .sidebar-content {
-        position: fixed;
-        width: inherit;
-    }
-</style>
-"""
-st.markdown(fixed_sidebar_style, unsafe_allow_html=True)
-
-# Импортируем модули страниц
-try:
-    from app.pages.home_page import render_home_page
-    from app.pages.futures_charts import render_futures_charts_page
-except ImportError as e:
-    st.error(f"Не удалось импортировать модули страниц: {str(e)}")
-
 # Основная функция приложения
 def main():
-    # Создаем боковую панель для навигации
-    with st.sidebar:
-        st.title("Crypto Analytics")
-        
-        # Выбор страницы
-        page = st.radio(
-            "Выберите страницу:",
-            ["Главная", "Графики фьючерсов"]
-        )
-    
-    # Отображаем выбранную страницу
-    if page == "Главная":
-        render_home_page()
-    elif page == "Графики фьючерсов":
-        render_futures_charts_page()
+    # Отображаем только главную страницу
+    render_home_page()
 
 # Запуск приложения
 if __name__ == "__main__":
