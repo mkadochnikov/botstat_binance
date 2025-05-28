@@ -92,7 +92,7 @@ def render_candlestick_page():
         yaxis='y2'
     ))
     
-    # Настраиваем внешний вид графика
+    # Настраиваем внешний вид графика - исправлена конфигурация
     fig.update_layout(
         title='BTC/USDT - Свечной график (тестовые данные)',
         xaxis_title='Дата',
@@ -104,13 +104,13 @@ def render_candlestick_page():
         yaxis=dict(
             domain=[0.2, 1.0],  # Основной график занимает 80% высоты
             showgrid=True,
-            gridcolor='rgba(230, 230, 230, 0.3)',
+            gridcolor='rgba(230, 230, 230, 0.3)'
         ),
         yaxis2=dict(
             domain=[0, 0.2],  # Объемы занимают 20% высоты
             showgrid=False,
             title='Объем',
-            titlefont=dict(color='rgba(100, 100, 100, 0.8)'),
+            titlefont=dict(color='rgba(100, 100, 100, 0.8)')
         ),
         
         # Настройка легенды
@@ -128,14 +128,10 @@ def render_candlestick_page():
         xaxis=dict(
             showgrid=True,
             gridcolor='rgba(230, 230, 230, 0.3)',
-            rangeslider=dict(visible=True),  # Добавляем ползунок для навигации
-        ),
+            rangeslider=dict(visible=True)  # Добавляем ползунок для навигации
+        )
         
-        # Настройка инструментов
-        modebar=dict(
-            orientation='v',
-            bgcolor='rgba(250, 250, 250, 0.9)',
-        ),
+        # Удалена проблемная настройка modebar, которая вызывала ошибку
     )
     
     # Отображаем график на всю ширину контейнера
