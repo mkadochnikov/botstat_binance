@@ -109,11 +109,8 @@ def render_candlestick_page():
         yaxis2=dict(
             domain=[0, 0.2],  # Объемы занимают 20% высоты
             showgrid=False,
-            # Исправлено: заменен параметр titlefont на title с вложенным font
-            title=dict(
-                text='Объем',
-                font=dict(color='rgba(100, 100, 100, 0.8)')
-            )
+            title='Объем',
+            titlefont=dict(color='rgba(100, 100, 100, 0.8)')
         ),
         
         # Настройка легенды
@@ -133,6 +130,8 @@ def render_candlestick_page():
             gridcolor='rgba(230, 230, 230, 0.3)',
             rangeslider=dict(visible=True)  # Добавляем ползунок для навигации
         )
+        
+        # Удалена проблемная настройка modebar, которая вызывала ошибку
     )
     
     # Отображаем график на всю ширину контейнера
