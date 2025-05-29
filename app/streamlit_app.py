@@ -1,3 +1,7 @@
+"""
+Модуль для интеграции функций чтения данных из PostgreSQL в основное приложение.
+Заменяет прямые вызовы API на чтение из базы данных.
+"""
 import streamlit as st
 import pandas as pd
 import requests
@@ -11,11 +15,12 @@ from typing import List, Dict, Any, Optional
 # Добавляем родительскую директорию в путь для импорта
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Импортируем модуль главной страницы
+# Импортируем модули страниц
 try:
-    from pages.home_page import render_home_page
+    from app.pages.home_page import render_home_page
+    from app.pages.trade_sessions import render_trade_sessions_page
 except ImportError:
-    st.error("Не удалось импортировать модуль главной страницы")
+    st.error("Не удалось импортировать модули страниц")
 
 # Настройка страницы Streamlit
 st.set_page_config(
@@ -36,8 +41,19 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Основная функция приложения
 def main():
-    # Отображаем только главную страницу
-    render_home_page()
+    # Добавляем меню для переключения между страницами
+    page = st.sidebar.radio(
+        "Выберите страницу:",
+        ["Индексы", "Торговые сессии"],
+        index=0,  # По умолчанию выбрана первая страница
+        key="page_selection"
+    )
+    
+    # Отображаем выбранную страницу
+    if page == "Индексы":
+        render_home_page()
+    elif page == "Торговые сессии":
+        render_trade_sessions_page()
 
 # Запуск приложения
 if __name__ == "__main__":
